@@ -1,5 +1,5 @@
 {
-  "name": "hubot-slack",
+  "name": "hubot-slack-sam-ai",
   "version": "3.3.0",
   "author": {
     "name": "Tiny Speck",
@@ -43,11 +43,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "http://github.com/slackhq/hubot-slack.git"
+    "url": "https://github.com/freakinruben/hubot-slack"
   },
   "bugs": {
-    "url": "https://github.com/slackhq/hubot-slack/issues",
-    "email": "feedback@tinyspeck.com"
+    "url": "https://github.com/freakinruben/hubot-slack/issues",
+    "email": "ruben@vita.io"
   },
   "devDependencies": {
     "coffee-script": "~1.7.1",

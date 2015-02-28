@@ -8,40 +8,46 @@ Util = require 'util'
 class SlackBot extends Adapter
   @MAX_MESSAGE_LENGTH: 4000
   @MIN_MESSAGE_LENGTH: 1
+  @AUTO_RECONNECT: true
+  @AUTO_MARK: true
+
+  tokens = []
+  clients = {}
 
   constructor: (robot) ->
     @robot = robot
+    @tokens.push(process.env.HUBOT_SLACK_TOKEN)
 
-  run: ->
-    # Take our options from the environment, and set otherwise suitable defaults
-    options =
-      token: process.env.HUBOT_SLACK_TOKEN
-      autoReconnect: true
-      autoMark: true
 
-    return @robot.logger.error "No services token provided to Hubot" unless options.token
-    return @robot.logger.error "v2 services token provided, please follow the upgrade instructions" unless (options.token.substring(0, 5) == 'xoxb-')
+  startClient: (token) ->
+    return null unless clients[token] is null
 
-    @options = options
+    return @robot.logger.error "No services token provided to Hubot" unless token
+    return @robot.logger.error "v2 services token provided, please follow the upgrade instructions" unless (token.substring(0, 5) == 'xoxb-')
 
-    # Create our slack client object
-    @client = new SlackClient options.token, options.autoReconnect, options.autoMark
-
+    client = new SlackClient token AUTO_RECONNECT AUTO_MARK
     # Setup event handlers
     # TODO: Handle eventual events at (re-)connection time for unreads and provide a config for whether we want to process them
-    @client.on 'error', @.error
-    @client.on 'loggedIn', @.loggedIn
-    @client.on 'open', @.open
-    @client.on 'close', @.clientClose
-    @client.on 'message', @.message
-    @client.on 'userChange', @.userChange
-    @robot.brain.on 'loaded', @.brainLoaded
-
-    @robot.on 'slack-attachment', @.customMessage
-    @robot.on 'slack.attachment', @.customMessage
+    client.on 'error', @.error
+    client.on 'loggedIn', @.loggedIn
+    client.on 'open', @.open
+    client.on 'close', @.clientClose
+    client.on 'message', @.message
+    client.on 'userChange', @.userChange
 
     # Start logging in
-    @client.login()
+    client.login()
+    @clients[token] = client
+
+
+  stopClient: (token) ->
+    return null unless clients[token] isnt null
+
+
+  run: ->
+    @robot.brain.on 'loaded', @.brainLoaded
+    @robot.on 'slack-attachment', @.customMessage
+    @robot.on 'slack.attachment', @.customMessage
 
   error: (error) =>
     @robot.logger.error "Received error #{JSON.stringify error}"
