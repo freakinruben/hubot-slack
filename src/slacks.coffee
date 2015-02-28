@@ -13,7 +13,7 @@ class SlackBots extends Adapter
 
 
   run: ->
-    @robot.logger.info "starting #{@tokens.length} slackbots"
+    @robot.logger.info "starting #{@tokens.length} slackbot(s)"
     @robot.brain.on 'loaded', @.brainLoaded
     @robot.name = "Sam.AI"
     @.startBot token for token in @tokens
@@ -26,7 +26,7 @@ class SlackBots extends Adapter
 
   startBot: (token) ->
     return null unless @bots[token] is undefined
-    @robot.logger.info "starting bot for #{token}"
+    @robot.logger.debug "starting bot for #{token}"
     bot = new SlackBot @robot
     bot.run token
     bot.on 'closed', @.botStopped
@@ -37,6 +37,7 @@ class SlackBots extends Adapter
 
 
   botStopped: (token) =>
+    @robot.logger.debug "botStopped #{token}"
     return null unless @bots[token] isnt undefined
     bot = @bots[token]
     @bots[token] = null # TODO remove token from redis? or store in offline bots list?
@@ -44,13 +45,17 @@ class SlackBots extends Adapter
 
 
   brainLoaded: =>
+    @robot.logger.debug "brainLoaded (#{@tokens.length} bots)"
     return null unless @brainLoaded isnt true
     # tell all bots that the brain is loaded
-    bot.brainLoaded for token, bot of @bots
+    for token, bot of @bots
+      bot.brainLoaded
     @brainLoaded = true
 
 
   send: (envelope, messages...) ->
+    @robot.logger.debug "sending"
+
     # find correct bot for envelope
     targetBot = null
     for token,bot in bots

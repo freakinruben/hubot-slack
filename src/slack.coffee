@@ -13,6 +13,7 @@ class SlackBot extends Adapter
     @robot = robot
 
   run: (token) ->
+    @robot.logger.debug "Run #{token}"
     options =
       token: token
       autoReconnect: true
@@ -62,6 +63,7 @@ class SlackBot extends Adapter
       @userChange user
 
   brainLoaded: =>
+    @robot.logger.debug "Loaded brains for #{@options.token}"
     # once the brain has loaded, reload all the users from the client
     for id, user of @client.users
       @userChange user
@@ -71,6 +73,7 @@ class SlackBot extends Adapter
       if id is user.name then delete @robot.brain.data.users[user.id]
 
   userChange: (user) =>
+    @robot.logger.debug "userChange for #{@options.token}: #{user.name}"
     newUser = {name: user.name, real_name: user.real_name, email_address: user.profile.email}
     if user.id of @robot.brain.data.users
       for key, value of @robot.brain.data.users[user.id]
@@ -106,6 +109,7 @@ class SlackBot extends Adapter
     return @client.getChannelGroupOrDMByID channelOrDMID isnt null
 
   message: (msg) =>
+    @robot.logger.info msg
     # Ignore our own messages
     return if msg.user == @self.id
 
