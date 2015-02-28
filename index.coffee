@@ -1,9 +1,9 @@
-SlackBot = require './src/slack'
+SlackBots = require './src/slacks'
 {SlackTextMessage, SlackRawMessage, SlackBotMessage} = require './src/message'
 {SlackRawListener, SlackBotListener} = require './src/listener'
 
 module.exports = exports = {
-  SlackBot
+  SlackBots
   SlackTextMessage
   SlackRawMessage
   SlackBotMessage
@@ -12,4 +12,4 @@ module.exports = exports = {
 }
 
 exports.use = (robot) ->
-  new SlackBot robot
+  new SlackBots robot

@@ -8,52 +8,46 @@ Util = require 'util'
 class SlackBot extends Adapter
   @MAX_MESSAGE_LENGTH: 4000
   @MIN_MESSAGE_LENGTH: 1
-  @AUTO_RECONNECT: true
-  @AUTO_MARK: true
-
-  tokens = []
-  clients = {}
 
   constructor: (robot) ->
     @robot = robot
-    @tokens.push(process.env.HUBOT_SLACK_TOKEN)
 
+  run: (token) ->
+    options =
+      token: token
+      autoReconnect: true
+      autoMark: true
 
-  startClient: (token) ->
-    return null unless clients[token] is null
+    return @robot.logger.error "No services token provided to Hubot" unless options.token
+    return @robot.logger.error "v2 services token provided, please follow the upgrade instructions" unless (options.token.substring(0, 5) == 'xoxb-')
 
-    return @robot.logger.error "No services token provided to Hubot" unless token
-    return @robot.logger.error "v2 services token provided, please follow the upgrade instructions" unless (token.substring(0, 5) == 'xoxb-')
+    @options = options
 
-    client = new SlackClient token AUTO_RECONNECT AUTO_MARK
+    # Create our slack client object
+    @client = new SlackClient options.token, options.autoReconnect, options.autoMark
+
     # Setup event handlers
     # TODO: Handle eventual events at (re-)connection time for unreads and provide a config for whether we want to process them
-    client.on 'error', @.error
-    client.on 'loggedIn', @.loggedIn
-    client.on 'open', @.open
-    client.on 'close', @.clientClose
-    client.on 'message', @.message
-    client.on 'userChange', @.userChange
+    @client.on 'error', @.error
+    @client.on 'loggedIn', @.loggedIn
+    @client.on 'open', @.open
+    @client.on 'close', @.clientClose
+    @client.on 'message', @.message
+    @client.on 'userChange', @.userChange
+    #@robot.brain.on 'loaded', @.brainLoaded
+
+    #@robot.on 'slack-attachment', @.customMessage
+    #@robot.on 'slack.attachment', @.customMessage
 
     # Start logging in
-    client.login()
-    @clients[token] = client
-
-
-  stopClient: (token) ->
-    return null unless clients[token] isnt null
-
-
-  run: ->
-    @robot.brain.on 'loaded', @.brainLoaded
-    @robot.on 'slack-attachment', @.customMessage
-    @robot.on 'slack.attachment', @.customMessage
+    @client.login()
 
   error: (error) =>
     @robot.logger.error "Received error #{JSON.stringify error}"
     @robot.logger.error error.stack
     @robot.logger.error "Exiting in 1 second"
-    setTimeout process.exit.bind(process, 1), 1000
+    @error = true
+    setTimeout @.clientClose, 1000
 
   loggedIn: (self, team) =>
     @robot.logger.info "Logged in as #{self.name} of #{team.name}, but not yet connected"
@@ -62,7 +56,7 @@ class SlackBot extends Adapter
     @self = self
 
     # Provide our name to Hubot
-    @robot.name = self.name
+    #@robot.name = self.name
 
     for id, user of @client.users
       @userChange user
@@ -91,6 +85,10 @@ class SlackBot extends Adapter
     # Tell Hubot we're connected so it can load scripts
     @emit "connected"
 
+  close: =>
+    @robot.logger.info "Closing slack client: #{options.token}"
+    @client.disconnect
+
   clientClose: =>
     @robot.logger.info 'Slack client closed'
     @client.removeListener 'error', @.error
@@ -98,7 +96,14 @@ class SlackBot extends Adapter
     @client.removeListener 'open', @.open
     @client.removeListener 'close', @.clientClose
     @client.removeListener 'message', @.message
-    process.exit 0
+    @.emit 'closed', @options.token
+    #if @error is true
+      #process.exit 1
+    #else
+      #process.exit 0
+
+  hasChannel: (channelOrDMID) ->
+    return @client.getChannelGroupOrDMByID channelOrDMID isnt null
 
   message: (msg) =>
     # Ignore our own messages
@@ -254,33 +259,33 @@ class SlackBot extends Adapter
     channel = @client.getChannelGroupOrDMByName envelope.room
     channel.setTopic strings.join "\n"
 
-  customMessage: (data) =>
+  # customMessage: (data) =>
 
-    channelName = if data.channel
-      data.channel
-    else if data.message.envelope
-      data.message.envelope.room
-    else data.message.room
+  #   channelName = if data.channel
+  #     data.channel
+  #   else if data.message.envelope
+  #     data.message.envelope.room
+  #   else data.message.room
 
-    channel = @client.getChannelGroupOrDMByName channelName
-    return unless channel
+  #   channel = @client.getChannelGroupOrDMByName channelName
+  #   return unless channel
 
-    msg = {}
-    msg.attachments = data.attachments || data.content
-    msg.attachments = [msg.attachments] unless Array.isArray msg.attachments
+  #   msg = {}
+  #   msg.attachments = data.attachments || data.content
+  #   msg.attachments = [msg.attachments] unless Array.isArray msg.attachments
 
-    msg.text = data.text
+  #   msg.text = data.text
 
-    if data.username && data.username != robot.name
-      msg.as_user = false
-      if data.icon_url?
-        msg.icon_url = data.icon_url
-      else if data.icon_emoji?
-        msg.icon_emoji = data.icon_emoji
-    else
-      msg.as_user = true
+  #   if data.username && data.username != robot.name
+  #     msg.as_user = false
+  #     if data.icon_url?
+  #       msg.icon_url = data.icon_url
+  #     else if data.icon_emoji?
+  #       msg.icon_emoji = data.icon_emoji
+  #   else
+  #     msg.as_user = true
 
-    channel.postMessage msg
+  #   channel.postMessage msg
 
 # Export class for unit tests
 module.exports = SlackBot
